@@ -1,0 +1,50 @@
+version: "3.7"
+
+services:
+  api:
+    build:
+      context: ./src/api/
+    image: edsondewes/cashback:api
+    environment:
+      MongoDb__Host: "mongodb://mongo:27017"
+      MongoDb__Database: "cashback"
+      CashbackApi__Token: "<token api>"
+      CashbackApi__Url: "<url api>"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
+      - "traefik.http.routers.api.middlewares=api-stripprefix"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
+      - "traefik.http.services.api.loadbalancer.server.port=80"
+
+  web:
+    build:
+      context: ./src/react-app/
+      args:
+        apiUrl: "http://localhost:8080/api"
+    image: edsondewes/cashback:app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=PathPrefix(`/`)"
+      - "traefik.http.services.app.loadbalancer.server.port=80"
+
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  proxy:
+    image: traefik:2.1
+    labels:
+      - "traefik.enable=false"
+    ports:
+      - "8080:80"
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.toml:/etc/traefik/traefik.toml
+
+volumes:
+  mongo-data:
